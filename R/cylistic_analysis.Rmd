@@ -1,0 +1,131 @@
+---
+output:
+  html_document: default
+  word_document: default
+  pdf_document: default
+---
+```{r}
+# Importing libraries
+library(tidyverse)
+library(janitor)
+library(lubridate)
+library(ggplot2)
+```
+```{r}
+# Read in data
+df <- read_csv('C:/Users/SOLA/Downloads/Dejavu/Google Data Analytics Professional Certificate/CASE STUDY I/FILES/SQL/combined_dataset.csv')
+```
+```{r}
+# Full column specification
+spec(df)
+```
+```{r}
+# Preview of the data
+head(df)
+```
+```{r}
+# Remove empty row and columns 
+df <- janitor :: remove_empty(df,which = c('cols'))
+df <- janitor :: remove_empty(df,which = c('rows'))
+```
+```{r}
+# Format the datetime columns
+df$started_at <- lubridate::ymd_hms(df$started_at)
+df$ended_at <- lubridate::ymd_hms(df$ended_at)
+```
+```{r}
+# Parse time
+df$start_time<- lubridate::hms(df$started_at)
+df$end_time <- lubridate::hms(df$ended_at)
+```
+```{r}
+# Create start/end hour column
+df$start_hour <- lubridate::hour(df$started_at)
+df$end_hour <- lubridate::hour(df$ended_at)
+# Create weekly and monthly columns
+df$weekly <- lubridate::week(df$started_at)
+df$monthly <- lubridate::month(df$started_at)
+```
+```{r}
+# Create minutes column
+df$minutes <- difftime((df$ended_at, df$started_at,units = c('mins'))
+# filtering out duration less than 0
+df <- df %>% filter(minutes > 0) %>% drop_na()
+```
+```{r}
+# Create trip_date column
+df$start_date <- as.Date(df$started_at)
+df$end_date <- as.Date(df$ended_at)
+```
+```{r}
+# Check size of dataframe
+dim(df)
+```
+```{r}
+# Summary df
+# By start hour
+df2 <- df %>% group_by(weekly=floor_date(Ymd,'week'),start_hour) %>%
+              summarise(
+                minutes = sum(minutes),
+                mean = mean(minutes),
+                median = median(minutes),
+                max = max(minutes),
+                min = min(minutes),
+                count = n()
+              ) %>% ungroup()
+```
+```{r}
+# By start station
+df3 <- df %>% group_by(weekly=floor_date(Ymd,'week'),start_station_name) %>%
+  summarise(
+    minutes = sum(minutes),
+    mean = mean(minutes),
+    median = median(minutes),
+    max = max(minutes),
+    min = min(minutes),
+    count = n()
+  ) %>% ungroup()
+```
+```{r}
+# By rideable type
+df4 <- df %>% group_by(weekly=floor_date(Ymd,'week'),rideable_type) %>%
+  summarise(
+    minutes = sum(minutes),
+    mean = mean(minutes),
+    median = median(minutes),
+    max = max(minutes),
+    min = min(minutes),
+    count = n()
+  ) %>% ungroup()
+```
+```{r}
+df$Count <- n()
+df$count_ma <- forecast::ma(df$Count,28)
+```
+```{r}
+# Summary of hourly counts
+summary(df$Count)
+```
+```{r}
+df %>% ggplot() + geom_col(aes(x=start_hour, y=Count)) + scale_y_continuous(labels=comma) + labs(title='Count of Rides by Hour', y='Rides per Hour')
+```
+```{r}
+table(df$rideable_type)
+```
+```{r}
+ggplot(df) + geom_area(aes(x=weekly, y=Count, fill=rideable_type)) + facet_wrap(~rideable_type,scale='free_y')
+```
+```{r}
+table(df$member_casual)
+```
+```{r}
+table(df$day_of_week)
+```
+```{r}
+# Top 10 rides by start station name
+df %>% count(start_station_name, sort=TRUE) %>% top_n(10) %>% ggplot() + geom_col(aes(x=reorder(start_station_name,n), y=n)) + coord_flip() + labs(title='Top 10 Start Stations by Ride Count', y='Start Station Name', x= 'Count of Rides') + scale_y_continuous(labels=comma)
+```
+```{r}
+# Top 10 rides by end station name
+df %>% count(end_station_name, sort=TRUE)  %>% top_n(10) %>% ggplot() + geom_col(aes(x=reorder(end_station_name,n), y= n)) + coord_flip() + labs(title='Top 10 End Stations by Ride Count', y='End Station Name', x= 'Count of Rides') + scale_y_continuous(labels=comma)
+```
